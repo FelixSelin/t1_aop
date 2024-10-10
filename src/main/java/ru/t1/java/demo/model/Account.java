@@ -18,6 +18,7 @@ public class Account extends AbstractPersistable<Long> {
     @Enumerated(EnumType.STRING)
     private AccountType accountType;
 
+    @Column(name= "balance", precision = 19, scale = 2)
     private BigDecimal balance;
 
     @ManyToOne
