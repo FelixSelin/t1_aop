@@ -20,7 +20,7 @@ public class ClientController {
     private final ClientService clientService;
 
     @LogException
-    @Track
+    @Track(threshold = 100L)
     @GetMapping(value = "/client")
     @HandlingResult
     public void doSomething() throws IOException, InterruptedException {

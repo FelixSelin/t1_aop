@@ -7,9 +7,13 @@ import org.aspectj.lang.annotation.After;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
+import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import ru.t1.java.demo.model.TimeLimitExceedLog;
+import ru.t1.java.demo.repository.TimeLimitExceedLogRepository;
 
+import java.lang.reflect.Method;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Async
@@ -19,6 +23,11 @@ import java.util.concurrent.atomic.AtomicLong;
 public class TrackingAspect {
 
     private static final AtomicLong START_TIME = new AtomicLong();
+    private final TimeLimitExceedLogRepository timeLimitExceedLogRepository;
+
+    public TrackingAspect(TimeLimitExceedLogRepository timeLimitExceedLogRepository) {
+        this.timeLimitExceedLogRepository = timeLimitExceedLogRepository;
+    }
 
     @Before("@annotation(ru.t1.java.demo.aop.Track)")
     public void logExecTime(JoinPoint joinPoint) throws Throwable {
@@ -29,11 +38,19 @@ public class TrackingAspect {
     @After("@annotation(ru.t1.java.demo.aop.Track)")
     public void calculateTime(JoinPoint joinPoint) {
         long afterTime = System.currentTimeMillis();
-        log.info("Время исполнения: {} ms", (afterTime - START_TIME.get()));
+        long executionTime = afterTime - START_TIME.get();
+        log.info("Время исполнения: {} ms", executionTime);
+
+        Method executedMethod = ((MethodSignature) joinPoint.getSignature()).getMethod();
+        if (executionTime > executedMethod.getAnnotation(Track.class).threshold()) {
+            timeLimitExceedLogRepository.save(new TimeLimitExceedLog(joinPoint.getSignature().toShortString(), executionTime));
+        }
+
         START_TIME.set(0L);
     }
 
-    @Around("@annotation(ru.t1.java.demo.aop.Track)")
+//    disabled so that other aspects could work
+//    @Around("@annotation(ru.t1.java.demo.aop.Track)")
     public Object logExecTime(ProceedingJoinPoint pJoinPoint) {
         log.info("Вызов метода: {}", pJoinPoint.getSignature().toShortString());
         long beforeTime = System.currentTimeMillis();
